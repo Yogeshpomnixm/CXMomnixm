@@ -1,0 +1,4 @@
+# Streamlit Cache
+.streamlit/cache/
+.streamlit/config.toml
+.streamlit/secrets.toml  # don't push secrets!
