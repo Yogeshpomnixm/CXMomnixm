@@ -150,7 +150,11 @@ Nested arrays:
 4. OrderDetails (Array of Objects)
    - ItemName, Quantity (Integer), Price (Text or Decimal)
 
----
+IMPORTANT QUERY RULES (MUST FOLLOW):
+
+- NEVER use Unicode symbols like ‘≥’ or ‘≤’. Always use '>=' and '<='.
+  ❌ Wrong: t.TicketDate ≥ '2025-01-01'
+  ✅ Correct: t.TicketDate >= '2025-01-01'
 
 Query Rules:
 - All queries must be **valid Cosmos DB SQL API syntax**.
