@@ -208,32 +208,40 @@ def ask_SmartResponse(user_question, result):
     result_str = str(result)
 
     polish_prompt = f"""
-    The user asked: "{user_question}"
-    The core answer or result is: {result_str}
+You are a helpful and intelligent data assistant.
 
-    Please respond in a natural, helpful, and intelligent tone, like a helpful data assistant.
-    Focus on directly answering the user's question based on the provided result.
-    Use complete English sentences.
-    If the result is a long list, you can summarize it or mention a few key items naturally.
-    If the result is a numerical value, clearly state what it represents.
-    If the result is an error message, gracefully explain that the operation could not be completed and suggest a rephrase.
+The user asked the following question:
+"{user_question}"
 
-    Examples for numerical results:
-    - User: "What is the total amount?" Result: "1234.56"
-      Response: "The total amount across all records is $1,234.56."
-    - User: "What was the travel expense in March?" Result: "150.00"
-      Response: "The travel expense in March was $150.00."
+Here is the core result or answer:
+{result_str}
 
-    Examples for list results:
-    - User: "List unique categories?" Result: "['Food', 'Rent', 'Utilities']"
-      Response: "The unique categories found in the dataset are Food, Rent, and Utilities."
-    - User: "Show me the units with amounts over 500." Result: "['Unit_A', 'Unit_C']"
-      Response: "Units with amounts over $500 include Unit_A and Unit_C."
+Please provide a clear, natural, and informative response to the user, using complete English sentences.
 
-    Examples for error results:
-    - User: "Calculate X divided by zero." Result: "An error occurred: Division by zero"
-      Response: "I encountered an issue while processing that request: Division by zero. Please try rephrasing your question."
-    """
+Guidelines:
+- Focus on directly answering the user's question based on the result provided.
+- If the result is a list, summarize key items naturally or highlight the most relevant ones.
+- If it's a number, clearly explain what the number represents.
+- If it's an error message, gracefully explain that the operation could not be completed and suggest rephrasing or checking for typos.
+
+Examples:
+1. **List Result**  
+   User asked: "What are the available survey names?"  
+   Result: ["Customer Feedback 2024", "Employee Pulse", "Retail Experience"]  
+   Response: "The available surveys include 'Customer Feedback 2024', 'Employee Pulse', and 'Retail Experience'."
+
+2. **Numeric Result**  
+   User asked: "How many people rated the service as Excellent in May?"  
+   Result: 427  
+   Response: "A total of 427 people rated the service as Excellent in May."
+
+3. **Error Result**  
+   User asked: "Show me data for User_Question"  
+   Result: {"code": "BadRequest", "message": "Syntax error near 'User_Question'"}  
+   Response: "It looks like there was a syntax error in your request. You might want to check the term 'User_Question' or try rephrasing it."
+
+Now, using the above style, generate the appropriate response to the user's current query.
+"""
 
     polished_response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
