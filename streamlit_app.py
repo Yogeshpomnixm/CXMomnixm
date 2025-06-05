@@ -8,108 +8,50 @@ import pyodbc
 from azure.cosmos import CosmosClient, PartitionKey
 import os
 import requests
-
+import json
 # --- Set the page title ---
 st.set_page_config(page_title="omniSense Assistant", page_icon="💬")
 st.title("💬 omniSense ChatBot")
 # --- DATABASE CONFIG ---
 secrets = st.secrets["database"]
-# --- DATABASE CONNECTION FUNCTION ---
-def get_connection():
-    try:
-        #st.write("Attempting to connect to database...")
-        secrets = st.secrets["database"]
-
-        # Corrected f-string for printing the driver
-        #st.write(f"Using driver: {secrets['driver']}")
-        # Corrected f-string for the connection string
-        # Each parameter needs to be separated by a semicolon within the string
-        conn_str = (
-            f"DRIVER={secrets['driver']};"
-            f"SERVER={secrets['server']};"
-            f"DATABASE={secrets['database']};"
-            f"UID={secrets['username']};"
-            f"PWD={secrets['password']};"
-            "TrustServerCertificate=yes;" # This is specific to SQL Server
-        )
-
-        conn = pyodbc.connect(conn_str)
-        st.success("Successfully connected to the database!")
-        return conn
-    except Exception as e:
-        st.error(f"Error connecting to the database: {e}")
-        st.info("Please check your database credentials in Streamlit Cloud secrets, "
-                "database firewall rules, and ensure the correct ODBC driver "
-                "is installed via packages.txt.")
-        return None
-
-# --- FETCH DATA BASED ON USER QUERY ---
-# def run_query(user_query):
-#     conn = get_connection()
-#     if conn:
-#         st.info("✅ Connected to database")
-#         try:
-#             df = pd.read_sql(user_query, conn)
-#             #st.success("✅ Data fetched successfully!")
-#             #st.dataframe(df)  # Show the data
-#             return df
-#         except Exception as e:
-#             #st.error(f"❌ Query error: {e}")
-#             return "Query error: {e}"
-#         finally:
-#             conn.close()
-#     else:
-#         #st.error("❌ Failed to connect to the database.")
-#         return "Failed to connect to the database."
 
 # Set credentials (use Streamlit secrets or env vars for security)
-COSMOS_URI =f"{secrets['COSMOS_URI']}" #st.secrets["COSMOS_URI"]
-COSMOS_KEY =f"{secrets['COSMOS_KEY']}" #st.secrets["COSMOS_KEY"]
-DATABASE_ID = "Collection"
-CONTAINER_ID = "Responses"
+COSMOSAPI_URI =f"{secrets['API_URI']}" #st.secrets["COSMOS_URI"]
+COSMOSAPI_KEY =f"{secrets['API_KEY']}"
+# --- FETCH DATA BASED ON USER QUERY API ---
+def run_query(user_query):   
+    url = COSMOSAPI_URI
+    
+   # This will go into the POST body, not the URL
+    payload = {
+                "containerName": "Responses",
+                "query": user_query  # Don't wrap in curly braces again
+    }
 
-# Connect to Cosmos DB
-client = CosmosClient(COSMOS_URI, COSMOS_KEY)
-database = client.get_database_client(DATABASE_ID)
-container = database.get_container_client(CONTAINER_ID)
-
-# --- FIX QUERY FOR COSMOS DB ---
-def fix_cosmos_query(raw_query):
-    # Convert to string explicitly and strip
-    query = str(raw_query).strip()
-
-    # Fix COUNT queries
-    if "COUNT(" in query.upper() and "SELECT VALUE" not in query.upper():
-        query = query.replace("SELECT", "SELECT VALUE", 1)
-
-    # Replace any '==' with '='
-    query = query.replace("==", "=")
-
-    return query
-
-# --- RUN QUERY FUNCTION ---
-def run_query(user_query):
-    if not isinstance(user_query, str):
-        user_query = str(user_query)
-
-    st.write("User Query:", user_query)
-    fixed_query = fix_cosmos_query(user_query)
-
-    if not isinstance(fixed_query, str):
-        fixed_query = str(fixed_query)
-
-    st.write("Fixed Query:", fixed_query)
-
+                
+    headers = {
+                "accept": "text/plain",  # Use "application/json" if API returns JSON
+                "X-API-KEY": COSMOSAPI_KEY,
+                "Content-Type": "application/json"
+    }
+   
     try:
-        items = list(container.query_items(
-            query=fixed_query,
-            enable_cross_partition_query=True
-        ))
-        return pd.DataFrame(items) if items else pd.DataFrame()
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()  # If API returns JSON
+                print(data)
+                df = pd.DataFrame(data)    
+                print(df)            
+                #st.success("✅ Data fetched successfully!")
+                return df
+            except ValueError:
+                return response.text  # If response is plain text
+        else:
+            return f"API call failed with status code {response.status_code}: {response.text}"
     except Exception as e:
-        st.error("❌ Query Execution Error")
-        return pd.DataFrame([{"error": str(e)}])
-
+        return f"API request error: {e}"     
 
 # --- API Key Input ---
 user_api_key =f"{secrets['keyvalue']}" #st.text_input("🔑 Enter your OpenAI API Key:", type="password") #f"{secrets['keyvalue']}"
@@ -157,112 +99,86 @@ Answer with only one word: Quantitative or Qualitative.
 # --- Generate Python Expression ---
 def ask_gpt_for_python_expression(user_question):
     prompt = f"""
-System Role:  
-You are an AI assistant that converts natural language questions into Cosmos DB SQL queries for a survey response database. The database has a single container called **“Responses”** in Azure Cosmos DB using the SQL API.
+System Role:
+You are an AI assistant that converts natural language questions into **Azure Cosmos DB SQL API** queries for a survey response database. The data is stored in a single container named “Responses”.
 
-Schema Definition:  
-Top-Level Fields:  
-- ResponseDetailsID (Integer)  
-- ResponseDate (ISO 8601 Date String)  
-- ResponseTime (Text)  
-- BusinessName, SurveyName (Text)  
-- ResponseMonth, ReponseYear (Text)  
-- Country, State, City (Text)  
-- Department, Branch, DeviceTypeName (Text)  
-- CustomerName, CustomerLocation, CustomerCountry, CustomerState, CustomerCity (Text)  
-- CustomerAge (Integer or Null)  
-- BrowserName (Text)  
-- IsCompleted, NumberOfAttempts, QuarterNo, WeekNumber, UniqueAccountID (Integer)  
-- PartsoftheDay, ResponseChannel, OrderNumber, AccountName (Text)  
+---
 
-Embedded Arrays and Objects:  
+Schema Overview:
 
-**ResponseAnswers** (Array of objects):  
-- ResponseDetailsID, ResponseDate, ResponseTime (Date String or Text)  
-- SurveyQuestionsText, OptionText, SurveyQuestionType (Text)  
-- OptionValue (Text or Number)  
-- OptionResponseDate, OptionResponseTime (Date String or Text)  
+Top-level fields:
+- ResponseDetailsID (Integer)
+- ResponseDate (ISO 8601 Date in string format, e.g., '2025-06-01')
+- ResponseTime (Time)
+- BusinessName (Text)
+- SurveyName (Text)
+- ResponseMonth (Text) — Month as string, e.g., "1", "12"
+- ReponseYear (Text) — Year as string, e.g., "2023"
+- Country, State, City (Text)
+- PopulationSize (Integer or Null)
+- Department, Branch, DeviceTypeName, CustomerName (Text)
+- CustomerAge (Integer or Null)
+- CustomerLocation, CustomerCountry, CustomerState, CustomerCity (Text or Null)
+- BrowserName (Text)
+- IsCompleted (Integer: 0 or 1)
+- NumberOfAttempts (Integer)
+- PartsoftheDay (Text)
+- ResponseChannel (Text)
+- OrderNumber (Text)
+- QuarterNo (Integer)
+- WeekNumber (Integer)
+- UniqueAccountID (Integer)
+- AccountName (Text)
 
-**TicketDetails** (Array of objects):  
-- ResponseDetailsID, TicketNumber (Text), TicketStatus (Text)  
-- TicketCreationDate, TicketResolutionDate, DueDate (Date Strings)  
-- TicketResolution, TicketUserNote, Comments (Text)  
-- AutoClose (Boolean or Integer)  
+Nested arrays:
 
-**SentimentDetails** (Object, optional):  
-- ResponseDetailsID, ResponseDate (Date)  
-- AnswerText (Text), SentimentRating (Integer), AnalyticsLabel (Text)  
+1. ResponseAnswers (Array of Objects)
+   - SurveyQuestionsText (Text)
+   - OptionText (Text)
+   - OptionValue (Text) — stored as a string
+   - SurveyQuestionType (Text)
+   - OptionResponseDate (Date), OptionResponseTime (Time)
 
-**OrderDetails** (Array of objects):  
-- ResponseDetailsID, OrderNumber, ItemName, Category1, Category2, Category3 (Text)  
-- Quantity (Integer), Price (Number or Text)
+2. TicketDetails (Array of Objects)
+   - TicketNumber, TicketStatus (Text)
+   - TicketCreationDate (Date in string format)
+   - Other ticket-related fields
 
-Survey Question Logic:  
-- Q1: “How was your dining experience?” — Rating scale 1–5  
-- Q2: “What drove poor experience?” — Checkbox options (shown if Q1 is 1–3)  
-- Q3: “What drove great experience?” — Checkbox options (shown if Q1 is 4–5)  
-- Q4: “Additional comments” — Text  
+3. SentimentDetails (Object)
+   - SentimentRating (Integer: -1, 0, 1)
 
-Important Querying Logic:
-- Cosmos DB SQL is **case-sensitive**. Use correct casing for all aliases and field names.
-  - Example: Use `td.TicketCreationDate`, not `TD.TicketCreationDate`
-  - Example: Use `ra.OptionValue`, not `RA.OptionValue`
-- For satisfaction by driver (e.g., "Taste"), filter `ra.OptionText` and compute average of Q1 (`ra.OptionValue`)  
-- Use `IS_DEFINED()` before accessing array values or nested fields  
-- `STARTSWITH(r.ResponseDate, "YYYY-MM")` for month filtering  
-- Use `JOIN` syntax for arrays: `JOIN ra IN r.ResponseAnswers`, etc.  
-- Use `CONTAINS(LOWER(field), "text")` for case-insensitive searches  
-- Use `TOP N` to limit result count — do not use `LIMIT`  
-- All numerical filters on OptionValue must check `> 0` after using `IS_DEFINED()`  
-- `OptionValue` may be stored as a string — apply implicit conversion by ensuring numeric filtering (e.g., `ra.OptionValue > 0`)  
+4. OrderDetails (Array of Objects)
+   - ItemName, Quantity (Integer), Price (Text or Decimal)
 
-Instructions:
-- Always generate **SELECT queries only**
-- Use **Cosmos DB SQL syntax**, not T-SQL
-- **Field names and aliases must match case exactly — Cosmos DB SQL is case-sensitive**
-- Only return fields that are meaningful for the query
-- Avoid SELECT * — use specific fields and aliases
-- Assume missing embedded objects/arrays must be safely checked using `IS_DEFINED()`  
+---
 
-Case Sensitivity:
-- Cosmos DB SQL is **case-sensitive**. Use correct case for aliases and fields (e.g., use `td.TicketCreationDate`, not `TD.TicketCreationDate`).
+Query Rules:
+- All queries must be **valid Cosmos DB SQL API syntax**.
+- Use `JOIN x IN r.ArrayName` for nested arrays.
+- Use `SELECT VALUE COUNT(1)` for count-based queries.
+- Use `SELECT VALUE {{}}` to return JSON objects.
+- Use `''` for all string comparisons (e.g., `x.OptionText = 'Poor'`)
+- Use **integer comparisons** only for numeric fields like `CustomerAge`, `IsCompleted`, `QuarterNo`, etc.
+- **DO NOT** use unsupported functions like `DATE_PART`, `FORMAT`, or `TO_CHAR`.
+- To filter by month/year, use:  
+  `r.ResponseMonth = '5'` and `r.ReponseYear = '2025'`  
+  (do not use built-in date functions).
+- For date comparisons, use direct string format (e.g., `r.ResponseDate >= '2025-01-01'`)
+- Do **not** include SQL markdown like ```sql or any explanation.
+- Do **not** return errors, always provide a working query.
 
-Aggregate Function Formatting:
-- For scalar results like counts, averages, etc., always use `SELECT VALUE COUNT(1)` or `SELECT VALUE AVG(field)` instead of using `AS`.
+Special Ticket Handling:
+- If user query involves **tickets**, generate query like:
+SELECT VALUE COUNT(1)
+FROM Responses r
+JOIN t IN r.TicketDetails
+WHERE t.TicketCreationDate >= '2025-01-01' AND t.TicketCreationDate < '2026-01-01'
+- Ensure ticket queries **join TicketDetails** and filter using `t.TicketCreationDate`.
 
-Defensive Checks:
-- Always check for nested array existence using `IS_DEFINED()`, e.g., `IS_DEFINED(td.TicketCreationDate)` before filtering.
-
-Example 1:  
-User_Question: What are the top 2 drivers of highest satisfaction for February 2025  
-Expected Output:  
-SELECT TOP 2  
-    ra.OptionText AS Driver,  
-    AVG(ra.OptionValue) AS AvgSatisfactionScore  
-FROM r  
-JOIN ra IN r.ResponseAnswers  
-WHERE  
-    STARTSWITH(r.ResponseDate, "2025-02")  
-    AND IS_DEFINED(ra.OptionValue)  
-    AND ra.OptionValue > 0  
-GROUP BY ra.OptionText  
-ORDER BY AvgSatisfactionScore DESC
-
-Example 2:  
-User_Question: What is the average satisfaction for taste in May 2025  
-Expected Output:  
-SELECT  
-    AVG(ra.OptionValue) AS AvgTasteSatisfaction  
-FROM r  
-JOIN ra IN r.ResponseAnswers  
-WHERE  
-    STARTSWITH(r.ResponseDate, "2025-05")  
-    AND IS_DEFINED(ra.OptionValue)  
-    AND ra.OptionValue > 0  
-    AND CONTAINS(LOWER(ra.OptionText), "taste")
+---
 
 User_Question: {user_question}  
-Expected Output: Cosmos DB SQL Query:
+SQL Query: cosmos_sql_query
 """
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -361,29 +277,24 @@ if user_question:
                 else:
                     python_expr = python_expr.strip()
                 
-               
+                
                 # --- Run SQL query from expression ---
                 result_df = run_query(python_expr)                
-                if result_df is not None and not result_df.empty:
-                   
+                # Check if the result is a DataFrame
+                if isinstance(result_df, pd.DataFrame) and not result_df.empty:
+
                     if result_df.shape == (1, 1):
                         result_value = result_df.iloc[0, 0]
-                        
-                        response = ask_SmartResponse(user_question, result_value)+":"+{python_expr}
+                        response = ask_SmartResponse(user_question, result_value)
                     else:
-                        response = ask_SmartResponse(user_question, result_df)+":"+{python_expr}
+                        response = ask_SmartResponse(user_question, result_df)
+
                 else:
-                    # Case 1: Query ran successfully but returned no rows.
-                    # This is where you want your "no data" smart answer.
-                    # Prompt for ask_SmartResponse: "No data was found for your specific question.
-                    # Please consider rephrasing or checking details."
-                    response = f"I couldn't find any information for your specific question.  " \
-                    f"Perhaps try rephrasing it or checking for typos."
-                    # response = ask_SmartResponse(
-                    #     user_question,
-                    #     "I couldn't find any information for your specific question. "
-                    #     "Perhaps try rephrasing it or checking for typos."
-                    # )
+                    # Handle if result_df is not a DataFrame or is empty
+                    response = (
+                        f"I couldn't find any information for your specific question.  "
+                        f"Perhaps try rephrasing it or checking for typos."
+                    )
 
             except Exception as e:
                 # Case 2: An error occurred during query generation or execution.
