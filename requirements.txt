@@ -5,3 +5,4 @@ requests
 pyodbc
 faiss-cpu
 scikit-learn
+azure-cosmos
