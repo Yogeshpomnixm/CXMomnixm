@@ -166,6 +166,7 @@ Query Rules:
 - For date comparisons, use direct string format (e.g., `r.ResponseDate >= '2025-01-01'`)
 - Do **not** include SQL markdown like ```sql or any explanation.
 - Do **not** return errors, always provide a working query.
+- In query conditions, do not use the '≥' symbol. Always use '>=' and '<=' for range filters in the WHERE clause.
 
 Special Ticket Handling:
 - If user query involves **tickets**, generate query like:
