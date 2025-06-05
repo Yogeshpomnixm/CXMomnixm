@@ -160,7 +160,7 @@ Query Syntax Rules:
 - All queries must be **valid Cosmos DB SQL API syntax**.
 - Use `JOIN x IN r.ArrayName` for nested arrays.
 - Use `SELECT VALUE COUNT(1)` for count-based queries.
-- Use `SELECT VALUE {}` to return JSON objects.
+- Use `SELECT VALUE {{}}` to return JSON objects.
 - Use `''` for all string comparisons (e.g., `x.OptionText = 'Poor'`)
 - Use only integer comparisons on numeric fields like `CustomerAge`, `QuarterNo`, etc.
 - **DO NOT** use unsupported functions like `DATE_PART`, `FORMAT`, or `TO_CHAR`.
