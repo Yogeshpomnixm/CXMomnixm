@@ -150,27 +150,22 @@ Nested arrays:
 4. OrderDetails (Array of Objects)
    - ItemName, Quantity (Integer), Price (Text or Decimal)
 
-IMPORTANT QUERY RULES (MUST FOLLOW):
+---
 
-- NEVER use Unicode symbols like ‘≥’ or ‘≤’. Always use '>=' and '<='.
-  ❌ Wrong: t.TicketDate ≥ '2025-01-01'
-  ✅ Correct: t.TicketDate >= '2025-01-01'
-
-Query Syntax Rules:
+Query Rules:
 - All queries must be **valid Cosmos DB SQL API syntax**.
 - Use `JOIN x IN r.ArrayName` for nested arrays.
 - Use `SELECT VALUE COUNT(1)` for count-based queries.
 - Use `SELECT VALUE {{}}` to return JSON objects.
 - Use `''` for all string comparisons (e.g., `x.OptionText = 'Poor'`)
-- Use only integer comparisons on numeric fields like `CustomerAge`, `QuarterNo`, etc.
+- Use **integer comparisons** only for numeric fields like `CustomerAge`, `IsCompleted`, `QuarterNo`, etc.
 - **DO NOT** use unsupported functions like `DATE_PART`, `FORMAT`, or `TO_CHAR`.
-- For filtering by month/year, use:  
+- To filter by month/year, use:  
   `r.ResponseMonth = '5'` and `r.ReponseYear = '2025'`  
-- For date filters, use direct strings:  
-  `r.ResponseDate >= '2025-01-01'`
-- Do **not** wrap queries in Markdown (no ` ```sql `)
-- Do **not** explain the query — only output the raw query string.
-- ALWAYS ensure the final output contains only supported ASCII syntax.
+  (do not use built-in date functions).
+- For date comparisons, use direct string format (e.g., `r.ResponseDate >= '2025-01-01'`)
+- Do **not** include SQL markdown like ```sql or any explanation.
+- Do **not** return errors, always provide a working query.
 
 Special Ticket Handling:
 - If user query involves **tickets**, generate query like:
@@ -183,7 +178,7 @@ WHERE t.TicketCreationDate >= '2025-01-01' AND t.TicketCreationDate < '2026-01-0
 ---
 
 User_Question: {user_question}  
-Return a Cosmos DB SQL query that answers this question following all the above rules.
+SQL Query: cosmos_sql_query
 """
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -213,40 +208,17 @@ def ask_SmartResponse(user_question, result):
     result_str = str(result)
 
     polish_prompt = f"""
-You are a helpful and intelligent data assistant.
+    The user asked: "{user_question}"
+    The core answer or result is: {result_str}
 
-The user asked the following question:
-"{user_question}"
+    Please respond in a natural, helpful, and intelligent tone, like a helpful data assistant.
+    Focus on directly answering the user's question based on the provided result.
+    Use complete English sentences.
+    If the result is a long list, you can summarize it or mention a few key items naturally.
+    If the result is a numerical value, clearly state what it represents.
+    If the result is an error message, gracefully explain that the operation could not be completed and suggest a rephrase.
 
-Here is the core result or answer:
-{result_str}
-
-Please provide a clear, natural, and informative response to the user, using complete English sentences.
-
-Guidelines:
-- Focus on directly answering the user's question based on the result provided.
-- If the result is a list, summarize key items naturally or highlight the most relevant ones.
-- If it's a number, clearly explain what the number represents.
-- If it's an error message, gracefully explain that the operation could not be completed and suggest rephrasing or checking for typos.
-
-Examples:
-1. **List Result**  
-   User asked: "What are the available survey names?"  
-   Result: ["Customer Feedback 2024", "Employee Pulse", "Retail Experience"]  
-   Response: "The available surveys include 'Customer Feedback 2024', 'Employee Pulse', and 'Retail Experience'."
-
-2. **Numeric Result**  
-   User asked: "How many people rated the service as Excellent in May?"  
-   Result: 427  
-   Response: "A total of 427 people rated the service as Excellent in May."
-
-3. **Error Result**  
-   User asked: "Show me data for User_Question"  
-   Result: {"code": "BadRequest", "message": "Syntax error near 'User_Question'"}  
-   Response: "It looks like there was a syntax error in your request. You might want to check the term 'User_Question' or try rephrasing it."
-
-Now, using the above style, generate the appropriate response to the user's current query.
-"""
+    """
 
     polished_response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
