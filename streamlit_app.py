@@ -156,21 +156,21 @@ IMPORTANT QUERY RULES (MUST FOLLOW):
   ❌ Wrong: t.TicketDate ≥ '2025-01-01'
   ✅ Correct: t.TicketDate >= '2025-01-01'
 
-Query Rules:
+Query Syntax Rules:
 - All queries must be **valid Cosmos DB SQL API syntax**.
 - Use `JOIN x IN r.ArrayName` for nested arrays.
 - Use `SELECT VALUE COUNT(1)` for count-based queries.
-- Use `SELECT VALUE {{}}` to return JSON objects.
+- Use `SELECT VALUE {}` to return JSON objects.
 - Use `''` for all string comparisons (e.g., `x.OptionText = 'Poor'`)
-- Use **integer comparisons** only for numeric fields like `CustomerAge`, `IsCompleted`, `QuarterNo`, etc.
+- Use only integer comparisons on numeric fields like `CustomerAge`, `QuarterNo`, etc.
 - **DO NOT** use unsupported functions like `DATE_PART`, `FORMAT`, or `TO_CHAR`.
-- To filter by month/year, use:  
+- For filtering by month/year, use:  
   `r.ResponseMonth = '5'` and `r.ReponseYear = '2025'`  
-  (do not use built-in date functions).
-- For date comparisons, use direct string format (e.g., `r.ResponseDate >= '2025-01-01'`)
-- Do **not** include SQL markdown like ```sql or any explanation.
-- Do **not** return errors, always provide a working query.
-- In query conditions, do not use the '≥' symbol. Always use '>=' and '<=' for range filters in the WHERE clause.
+- For date filters, use direct strings:  
+  `r.ResponseDate >= '2025-01-01'`
+- Do **not** wrap queries in Markdown (no ` ```sql `)
+- Do **not** explain the query — only output the raw query string.
+- ALWAYS ensure the final output contains only supported ASCII syntax.
 
 Special Ticket Handling:
 - If user query involves **tickets**, generate query like:
@@ -183,7 +183,7 @@ WHERE t.TicketCreationDate >= '2025-01-01' AND t.TicketCreationDate < '2026-01-0
 ---
 
 User_Question: {user_question}  
-SQL Query: cosmos_sql_query
+Return a Cosmos DB SQL query that answers this question following all the above rules.
 """
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
