@@ -99,179 +99,86 @@ Answer with only one word: Quantitative or Qualitative.
 # --- Generate Python Expression ---
 def ask_gpt_for_python_expression(user_question):
     prompt = f"""
-You are a Cosmos DB expert who creates accurate and optimized SQL queries for a survey database stored in Azure Cosmos DB. 
-
-The database contains one main collection: **Responses**. Each document represents a customer survey submission and contains both top-level fields and nested arrays such as `ResponseAnswers`, `TicketDetails`, `SentimentDetails`, and `OrderDetails`.
-
----
-
-### ✅ Database Schema
-
-#### 🔹 Top-Level Fields:
-- ResponseDetailsID (Integer): Unique identifier for each survey response.
-- ResponseDate (Date): Date the response was submitted.
-- ResponseTime (Time): Time the response was submitted.
-- BusinessName (Text): Business that conducted the survey.
-- SurveyName (Text): Name of the survey.
-- ResponseMonth (Text): Month number as string (e.g., "5").
-- ReponseYear (Text): Year as string (e.g., "2025").
-- Country, State, City (Text): Location information of the response.
-- PopulationSize (Integer or Null): Size of the population in the area.
-- Department, Branch (Text): Business units.
-- DeviceTypeName (Text): Type of device used (e.g., Mobile, Desktop).
-- CustomerName (Text): Name of the customer.
-- CustomerAge (Integer or Null): Age of the customer.
-- CustomerLocation (Text or Null): Customer-provided location.
-- CustomerCountry, CustomerState, CustomerCity (Text): Customer’s actual geographic location.
-- BrowserName (Text): Browser used to fill the survey.
-- IsCompleted (Integer): 1 if survey was completed, 0 otherwise.
-- NumberOfAttempts (Integer): How many times the customer attempted the survey.
-- PartsoftheDay (Text): Time of day (e.g., Morning, Afternoon).
-- ResponseChannel (Text): Medium used to submit the survey.
-- OrderNumber (Text): Order ID related to the survey.
-- QuarterNo (Integer): Quarter of the year (1–4).
-- WeekNumber (Integer): ISO week number.
-- UniqueAccountID (Integer): Customer's unique account ID.
-- AccountName (Text): Name of the customer’s account.
+System Role:
+You are an AI assistant that converts natural language questions into **Azure Cosmos DB SQL API** queries for a survey response database. The data is stored in a single container named “Responses”.
 
 ---
 
-#### 🔹 Nested Array: ResponseAnswers
-Each document contains an array `ResponseAnswers`:
-- SurveyQuestionsText (Text): The full text of the question.
-- OptionText (Text): Text of the selected option (e.g., "Very Good", "No").
-- OptionValue (Number): Numeric value for the selected answer (used in ratings).
-- SurveyQuestionType (Text): Type of question (e.g., "rating", "text", "yesno").
-- OptionResponseDate (Date): Date answer was recorded.
-- OptionResponseTime (Time): Time answer was recorded.
+Schema Overview:
+
+Top-level fields:
+- ResponseDetailsID (Integer)
+- ResponseDate (ISO 8601 Date in string format, e.g., '2025-06-01')
+- ResponseTime (Time)
+- BusinessName (Text)
+- SurveyName (Text)
+- ResponseMonth (Text) — Month as string, e.g., "1", "12"
+- ReponseYear (Text) — Year as string, e.g., "2023"
+- Country, State, City (Text)
+- PopulationSize (Integer or Null)
+- Department, Branch, DeviceTypeName, CustomerName (Text)
+- CustomerAge (Integer or Null)
+- CustomerLocation, CustomerCountry, CustomerState, CustomerCity (Text or Null)
+- BrowserName (Text)
+- IsCompleted (Integer: 0 or 1)
+- NumberOfAttempts (Integer)
+- PartsoftheDay (Text)
+- ResponseChannel (Text)
+- OrderNumber (Text)
+- QuarterNo (Integer)
+- WeekNumber (Integer)
+- UniqueAccountID (Integer)
+- AccountName (Text)
+
+Nested arrays:
+
+1. ResponseAnswers (Array of Objects)
+   - SurveyQuestionsText (Text)
+   - OptionText (Text)
+   - OptionValue (Text) — stored as a string
+   - SurveyQuestionType (Text)
+   - OptionResponseDate (Date), OptionResponseTime (Time)
+
+2. TicketDetails (Array of Objects)
+   - TicketNumber, TicketStatus (Text)
+   - TicketCreationDate (Date in string format)
+   - Other ticket-related fields
+
+3. SentimentDetails (Object)
+   - SentimentRating (Integer: -1, 0, 1)
+
+4. OrderDetails (Array of Objects)
+   - ItemName, Quantity (Integer), Price (Text or Decimal)
 
 ---
 
-#### 🔹 Nested Array: TicketDetails
-- TicketNumber (Text): Unique ID of the support ticket.
-- TicketStatus (Text): Status such as Open, Closed.
-- TicketCreationDate, TicketCreationTime (Date/Time)
-- TicketResolution (HTML Text): Full resolution message.
-- TicketResolutionDate, TicketResolutionTime (Nullable)
-- TicketUserNote (Text or Null): Notes from the user.
-- DueDate (Datetime): Deadline for resolving the ticket.
-- AutoClose (Boolean or Integer): Auto-close flag.
-- Comments (Text): General notes or comments.
+Query Rules:
+- All queries must be **valid Cosmos DB SQL API syntax**.
+- Use `JOIN x IN r.ArrayName` for nested arrays.
+- Use `SELECT VALUE COUNT(1)` for count-based queries.
+- Use `SELECT VALUE {{}}` to return JSON objects.
+- Use `''` for all string comparisons (e.g., `x.OptionText = 'Poor'`)
+- Use **integer comparisons** only for numeric fields like `CustomerAge`, `IsCompleted`, `QuarterNo`, etc.
+- **DO NOT** use unsupported functions like `DATE_PART`, `FORMAT`, or `TO_CHAR`.
+- To filter by month/year, use:  
+  `r.ResponseMonth = '5'` and `r.ReponseYear = '2025'`  
+  (do not use built-in date functions).
+- For date comparisons, use direct string format (e.g., `r.ResponseDate >= '2025-01-01'`)
+- Do **not** include SQL markdown like ```sql or any explanation.
+- Do **not** return errors, always provide a working query.
 
----
-
-#### 🔹 Object: SentimentDetails
-- AnswerText (Text): Customer's free-text response.
-- SentimentRating (Integer): Score from sentiment analysis.
-- AnalyticsLabel (Text): Classification like Positive, Neutral, Negative.
-
----
-
-#### 🔹 Nested Array: OrderDetails
-- OrderNumber (Text): Order identifier.
-- ItemName (Text): Purchased item name.
-- Category1, Category2, Category3 (Text): Hierarchical categories.
-- Quantity (Integer): Quantity ordered.
-- Price (Text or Decimal): Price of the item.
-
----
-
-### 🧠 Query Logic Instructions:
-
-1. **Quantitative Questions**:
-   - Identified by `SurveyQuestionType = 'rating'`.
-   - Use `OptionValue` for calculations like `AVG()`, `COUNT()`, `MAX()`, `MIN()`.
-
-2. **Qualitative Questions**:
-   - Identified by `SurveyQuestionType = 'text'`.
-   - Use `OptionText` for keyword filtering, frequency counts, etc.
-
-3. **JOIN syntax is required for arrays**:
-   - Use:
-     ```sql
-     FROM Responses r
-     JOIN ra IN r.ResponseAnswers
-     ```
-
-4. **Use filters** like:
-   - `SurveyName = 'ABC Survey'`
-   - `ReponseYear = '2025'`
-   - `ra.SurveyQuestionsText = 'How was your experience?'`
-
----
-
-### ✅ Output Format:
-- Always return a **working Cosmos DB SQL query**.
-- Wrap the result in triple backticks with the language `sql`.
-- Do not include explanations unless asked.
-
----
-
-### 📥 User Question:
----
-
-### 🧾 Examples of User Questions:
-- What is the average rating for "How was the food?" in March 2025?
-- List all customer feedback comments from Mumbai in Q2 2024.
-- Count responses grouped by browser name for survey "Dining Survey".
-- Show item-wise order quantity for order number "ORD123".
-
----
-## ✅ What This Fixes:
-- Forces the model to **always give the SQL query**.
-- Removes the ability to respond with fallback messages like *“Try rephrasing”*.
-- Handles both quantitative and qualitative cases.
-✅ Guidelines:
-Only use valid Cosmos DB SQL syntax.
-Don not use this ```sql
-Do not use AS, SELECT VALUE {{}}, or table aliases (r AS x) in final queries.
-
-Use JOIN x IN r.ResponseAnswers for nested arrays.
-
-For quantitative data (like ratings), use COUNT(1), AVG(x.OptionValue), GROUP BY, etc.
-
-For qualitative answers (like comments), just SELECT x.OptionText or x.SurveyQuestionsText.
-
-Always start with SELECT ... FROM Responses r.
-
-Always test for exact text matching in WHERE clause.
-
-✅ Examples:
-Q: Show me total responses by rating
-A:
-
-sql
-Copy
-Edit
-SELECT ra.OptionValue, COUNT(1)
+Special Ticket Handling:
+- If user query involves **tickets**, generate query like:
+SELECT VALUE COUNT(1)
 FROM Responses r
-JOIN ra IN r.ResponseAnswers
-WHERE ra.SurveyQuestionType = 'rating'
-GROUP BY ra.OptionValue
-Q: Show average rating by city
-A:
+JOIN t IN r.TicketDetails
+WHERE t.TicketCreationDate >= '2025-01-01' AND t.TicketCreationDate < '2026-01-01'
+- Ensure ticket queries **join TicketDetails** and filter using `t.TicketCreationDate`.
 
-sql
-Copy
-Edit
-SELECT r.City, AVG(ra.OptionValue)
-FROM Responses r
-JOIN ra IN r.ResponseAnswers
-WHERE ra.SurveyQuestionType = 'rating'
-GROUP BY r.City
-Q: Show comments where question is 'How was your meal?'
-A:
+---
 
-sql
-Copy
-Edit
-SELECT ra.OptionText
-FROM Responses r
-JOIN ra IN r.ResponseAnswers
-WHERE ra.SurveyQuestionsText = 'How was your meal?'
-
-**Your job is to generate accurate, executable Cosmos DB SQL queries for such questions.**
-User_Question: {user_question} 
+User_Question: {user_question}  
+SQL Query: cosmos_sql_query
 """
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
