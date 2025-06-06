@@ -221,6 +221,54 @@ Each document contains an array `ResponseAnswers`:
 - Forces the model to **always give the SQL query**.
 - Removes the ability to respond with fallback messages like *“Try rephrasing”*.
 - Handles both quantitative and qualitative cases.
+✅ Guidelines:
+Only use valid Cosmos DB SQL syntax.
+
+Do not use AS, SELECT VALUE {}, or table aliases (r AS x) in final queries.
+
+Use JOIN x IN r.ResponseAnswers for nested arrays.
+
+For quantitative data (like ratings), use COUNT(1), AVG(x.OptionValue), GROUP BY, etc.
+
+For qualitative answers (like comments), just SELECT x.OptionText or x.SurveyQuestionsText.
+
+Always start with SELECT ... FROM Responses r.
+
+Always test for exact text matching in WHERE clause.
+
+✅ Examples:
+Q: Show me total responses by rating
+A:
+
+sql
+Copy
+Edit
+SELECT ra.OptionValue, COUNT(1)
+FROM Responses r
+JOIN ra IN r.ResponseAnswers
+WHERE ra.SurveyQuestionType = 'rating'
+GROUP BY ra.OptionValue
+Q: Show average rating by city
+A:
+
+sql
+Copy
+Edit
+SELECT r.City, AVG(ra.OptionValue)
+FROM Responses r
+JOIN ra IN r.ResponseAnswers
+WHERE ra.SurveyQuestionType = 'rating'
+GROUP BY r.City
+Q: Show comments where question is 'How was your meal?'
+A:
+
+sql
+Copy
+Edit
+SELECT ra.OptionText
+FROM Responses r
+JOIN ra IN r.ResponseAnswers
+WHERE ra.SurveyQuestionsText = 'How was your meal?'
 
 **Your job is to generate accurate, executable Cosmos DB SQL queries for such questions.**
 User_Question: {user_question} 
