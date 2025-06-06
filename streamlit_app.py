@@ -224,7 +224,7 @@ Each document contains an array `ResponseAnswers`:
 ✅ Guidelines:
 Only use valid Cosmos DB SQL syntax.
 
-Do not use AS, SELECT VALUE {}, or table aliases (r AS x) in final queries.
+Do not use AS, SELECT VALUE {{}}, or table aliases (r AS x) in final queries.
 
 Use JOIN x IN r.ResponseAnswers for nested arrays.
 
