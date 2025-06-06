@@ -217,6 +217,10 @@ Each document contains an array `ResponseAnswers`:
 - Show item-wise order quantity for order number "ORD123".
 
 ---
+## ✅ What This Fixes:
+- Forces the model to **always give the SQL query**.
+- Removes the ability to respond with fallback messages like *“Try rephrasing”*.
+- Handles both quantitative and qualitative cases.
 
 **Your job is to generate accurate, executable Cosmos DB SQL queries for such questions.**
 User_Question: {user_question} 
