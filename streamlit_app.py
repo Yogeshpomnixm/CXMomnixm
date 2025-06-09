@@ -288,9 +288,9 @@ if user_question:
 
                     if result_df.shape == (1, 1):
                         result_value = result_df.iloc[0, 0]
-                        response = ask_SmartResponse(user_question, result_value)
+                        response = ask_SmartResponse(user_question, result_value) + f" Query: {python_expr}"
                     else:
-                        response = ask_SmartResponse(user_question, result_df)
+                        response = ask_SmartResponse(user_question, result_df) + f" Query: {python_expr}"
 
                 else:
                     # Handle if result_df is not a DataFrame or is empty
