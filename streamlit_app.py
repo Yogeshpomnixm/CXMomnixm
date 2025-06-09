@@ -110,6 +110,7 @@ You are an AI assistant that converts natural language questions into **Azure Co
 Schema Overview:
 
 Top-level fields:
+ReponseDetails (Master table array. This table is unique data.)
 - ResponseDetailsID (Integer)
 - ResponseDate (ISO 8601 Date in string format, e.g., '2025-06-01')
 - ResponseTime (Time)
@@ -151,7 +152,7 @@ Nested arrays:
    - SentimentRating (Integer: -1, 0, 1)
 
 4. OrderDetails (Array of Objects)
-   - ItemName, Quantity (Integer), Price (Text or Decimal)
+   - ItemName, Quantity (Integer), Price (Text or Decimal), Category1, Category2, Category3 (Text)
 
 ---
 
@@ -169,6 +170,20 @@ Query Rules:
 - For date comparisons, use direct string format (e.g., `r.ResponseDate >= '2025-01-01'`)
 - Do **not** include SQL markdown like ```sql or any explanation.
 - Do **not** return errors, always provide a working query.
+- If User ask this type of question like 'show me resposne total count by survey name','show me resposne total count by business name','show me resposne total count by city name','show me resposne total count by month name' then dont use the value key word in query like this 'SELECT r.SurveyName, VALUE COUNT(1) FROM Responses r GROUP BY r.SurveyName' use all time like this 'SELECT r.SurveyName, COUNT(1) FROM Responses r GROUP BY r.SurveyName'
+- Use all time TicketStatus is 'Open','Close','Hold' If any ask the question like this 'Hwo many ticktes are Opened and Closed and holed' then use this status like 'Open','Close','Hold'
+- 'PartsoftheDay' menas daylight time or meal time.
+- Attributes means optiontext and only SurveyQuestionType is 'checkbox' tyeps. If user ask question like this 'Show the count by attributes' then use the ResponseAnswers array 'Optiontext' and use the SurveyQuestionType 'checkbox'
+- SurveyQuestionType is 'radio' menas counter,stations, location use the ResponseAnswers array 'Optiontext'
+- If any user ask the question order related then use the OrderDetails array. If any ask question SentimentDetails and comments related the use SentimentDetails array. If ask any question Ticket related then use the TicketDetails array. If ask any question Response Answers related then use the ResponseAnswers array. 
+- If any user ask to the count related like by survey surveyname, business name, city, broswre ect. then use the ReponseDetails array.
+-  ResponseAnswers array is all rating and other type question data. If any user ask the rating related question the use this table 'rating' SurveyQuestionType.
+- SentimentDetails array is Analytics details table. 
+- If user ask the mix question like 'show the count and rating by Time, by Attributes, by survey name etc.then use the SurveyQuestionType 'rating', and 'count' for ReponseDetails and ResponseAnswers array.
+- If any ask the 'Show comments for bad, good, poor etc.' then use the SurveyQuestionType is 'text' on ResponseAnswers.
+- If any user ask the mix type questiuon the use the all Arrays.
+-If any ask the calculate the NPS then use the nps formula query and show Detractor,Passive,Promoter. Use the SurveyQuestionType 'rating' in ResponseAnswers array 
+
 
 Special Ticket Handling:
 - If user query involves **tickets**, generate query like:
@@ -281,7 +296,7 @@ if user_question:
                     # Handle if result_df is not a DataFrame or is empty
                     response = (
                         f"I couldn't find any information for your specific question.  "
-                        f"Perhaps try rephrasing it or checking for typos.Query: {python_expr}"
+                        f"Perhaps try rephrasing it or checking for typos."
                     )
 
             except Exception as e:
