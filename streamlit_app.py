@@ -296,7 +296,7 @@ if user_question:
                     # Handle if result_df is not a DataFrame or is empty
                     response = (
                         f"I couldn't find any information for your specific question.  "
-                        f"Perhaps try rephrasing it or checking for typos."
+                        f"Perhaps try rephrasing it or checking for typos.Query: {python_expr}"
                     )
 
             except Exception as e:
