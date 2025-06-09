@@ -24,7 +24,7 @@ def run_query(user_query):
     
    # This will go into the POST body, not the URL
     payload = {
-                "containerName": "Responses",
+                "containerName": "ResponseDetails",
                 "query": user_query  # Don't wrap in curly braces again
     }
 
